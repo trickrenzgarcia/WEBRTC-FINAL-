@@ -16,13 +16,8 @@ streaming_config = speech.RecognitionConfig(
 )
 
 streaming_config = speech.StreamingRecognitionConfig(
-<<<<<<< HEAD
     config=streaming_config, interim_results=True
     # Set interim_results to False
-=======
-    config=streaming_config,
-    interim_results=True  # Set interim_results to True for receiving interim results
->>>>>>> a02a898d3a1498b4588d8f6bf974cb64e4d67980
 )
 
 # Audio parameters
