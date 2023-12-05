@@ -1,8 +1,6 @@
 import pyaudio
 import queue
-import threading
 from google.cloud import speech_v1p1beta1 as speech
-import time
 
 # Set your Google Cloud service account key
 client = speech.SpeechClient.from_service_account_json('key.json')
@@ -18,8 +16,8 @@ streaming_config = speech.RecognitionConfig(
 )
 
 streaming_config = speech.StreamingRecognitionConfig(
-    config=streaming_config, interim_results=False
-    # Set interim_results to False
+    config=streaming_config,
+    interim_results=True  # Set interim_results to True for receiving interim results
 )
 
 # Audio parameters
@@ -47,35 +45,24 @@ stream = audio.open(format=FORMAT,
 
 print("Listening...")
 
-MAX_STREAMING_TIME_SECONDS = 60  # Set your desired maximum time limit here (in seconds)
-start_time = time.time()
-
 try:
-    def streaming_recognize():
-        streaming_recognize_requests = (
-            speech.StreamingRecognizeRequest(audio_content=chunk)
-            for chunk in iter(lambda: audio_queue.get(), None)
-        )
+    def generate_requests():
+        while True:
+            chunk = audio_queue.get()
+            yield speech.StreamingRecognizeRequest(audio_content=chunk)
 
-        responses = client.streaming_recognize(
-            config=streaming_config, requests=streaming_recognize_requests
-        )
+    requests = generate_requests()
 
-        for response in responses:
-            elapsed_time = time.time() - start_time
-            if elapsed_time >= MAX_STREAMING_TIME_SECONDS:
-                break  # Stop processing after reaching the time limit
+    streaming_recognize_responses = client.streaming_recognize(
+        config=streaming_config, requests=requests
+    )
 
-            for result in response.results:
-                if result.is_final:  # Print only final transcriptions
-                    print("Transcript: {}".format(result.alternatives[0].transcript))
-
-    streaming_thread = threading.Thread(target=streaming_recognize)
-    streaming_thread.start()
-
-    while streaming_thread.is_alive():
-        pass  # You can perform other tasks here while waiting for streaming to finish
-
+    for response in streaming_recognize_responses:
+        for result in response.results:
+            if result.is_final:
+                print("Transcript: {}".format(result.alternatives[0].transcript))
+            else:
+                print("Interim Transcript: {}".format(result.alternatives[0].transcript))
 except KeyboardInterrupt:
     pass
 finally:
